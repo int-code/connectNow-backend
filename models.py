@@ -24,6 +24,7 @@ class Project(Base):
   admin_id = Column(Integer, nullable=False)
   name = Column(VARCHAR, nullable=False)
   description = Column(TEXT, nullable=True)
+  pic = Column(VARCHAR, nullable=True)
   status = Column(VARCHAR, nullable=False)
   created_at = Column(TIMESTAMP(timezone=False), server_default=text('now()'))
 

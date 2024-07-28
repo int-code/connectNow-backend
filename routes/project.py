@@ -14,10 +14,10 @@ def get_all_projects(access_token = Depends(get_token_from_header), db:Session =
   return projects
 
 
-@projectRouter.get("/{project_id}")
-def get_project(info: getProject,access_token = Depends(get_token_from_header), db:Session = Depends(get_db)):
+@projectRouter.post("/{project_id}")
+def get_project(project_id: str,access_token = Depends(get_token_from_header), db:Session = Depends(get_db)):
   user = verify_token(access_token, db)
-  project = db.query(Project, Members).filter(Members.project_id == Project.id).filter(Project.id == info.project_id).first()
+  project = db.query(Project, Members).filter(Members.project_id == Project.id).filter(Project.id == project_id).first()
   if project is None:
     raise HTTPException(status_code=400, detail="ProjectNotFound")
   return project

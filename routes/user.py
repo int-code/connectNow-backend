@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
+from fastapi.responses import FileResponse
 from database import get_db
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -42,7 +43,7 @@ async def update_user(name: Annotated[str, Form()],
     f.write(contents)
   user.name = name
   user.bio = bio
-  user.profile_pic = profile_pic.filename
+  user.profile_pic = "http://localhost/user/profile_pic/"+profile_pic.filename
   db.commit()
   return {"detail": "UserUpdated"}
 
@@ -61,3 +62,9 @@ def delete_user(access_token = Depends(get_token_from_header),
   db.commit()
   return {"detail": "UserDeleted"}
   
+
+@userRouter.get('/profile_pic/{path}')
+def get_image(path: str):
+  file_path = f"profile_pics/{path}"
+  if os.path.exists(file_path):
+    return FileResponse(file_path)
