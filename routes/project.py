@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from database import get_db
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from helper.authHelper import get_token_from_header, verify_token
-from models import Project, Members, Interest
-from schemas.projectSchema import SearchProjects, GetProjectsByUser
+from models import Project, Members, Interest, Skill, ProjectSkill, User
+from schemas.projectSchema import SearchProjects, ProjectClass
 from typing import Annotated
 import uuid
 from config import BASE_URL
@@ -18,24 +19,10 @@ def get_all_projects(access_token:str = Depends(get_token_from_header), db:Sessi
   return projects
 
 
-@projectRouter.get("/{project_id}")
-def get_project(project_id: str,access_token:str = Depends(get_token_from_header), db:Session = Depends(get_db)):
-  user = verify_token(access_token, db)
-  project = db.query(Project).filter(Project.id == project_id).first()
-  members = db.query(Members).filter(Members.project_id == project_id).all()
-  interests = db.query(Interest).filter(Interest.project_id == project_id).all()
-  if project is None:
-    raise HTTPException(status_code=400, detail="ProjectNotFound")
-  return {
-    "project": project,
-    "members": members,
-    "interests": interests
-  }
-
 @projectRouter.post("/")
 async def make_project(name: Annotated[str, Form()],
                  description: Annotated[str, Form()] = None,
-                 pic: Annotated[str, File()] = None,
+                 pic: Annotated[UploadFile, File()] = None,
                  access_token:str = Depends(get_token_from_header), 
                  db: Session = Depends(get_db)):
   user = verify_token(access_token, db)
@@ -53,13 +40,108 @@ async def make_project(name: Annotated[str, Form()],
   project = Project(admin_id = user.id, name=name, description=description, pic_url=pic_url, pic_path=pic_path, status="Not started")
   db.add(project)
   db.commit()
+  db.refresh(project)
+  return {
+    "project_id": project.id
+  }
 
+
+
+@projectRouter.delete("/{project_id}")
+def delete_project(project_id, access_token:str = Depends(get_token_from_header), 
+                 db: Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  owner = db.query(Project.admin_id).filter(Project.id == project_id).first()
+  if(user.id != owner):
+    raise HTTPException(status_code=400, detail="Not permitted to do that action")
+  project = db.query(Project).filter(Project.id==project_id).first()
+  db.delete(project)
+  db.commit()
+
+@projectRouter.post("/name")
+def search_projects_by_name(info: SearchProjects,
+                            access_token:str= Depends(get_token_from_header), 
+                            db: Session = Depends(get_db)):
+
+  user = verify_token(access_token, db)  
+  projects = db.query(Project).filter(Project.name.like(f"%{info.search}%")).all()
+  return projects
+
+@projectRouter.post("/user")
+def get_project_by_user(info:SearchProjects,
+                        access_token:str= Depends(get_token_from_header), 
+                        db: Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  projects = db.query(Project, User).filter(Project.admin_id==User.id).filter(or_(User.username.like(f"%{info.search}%"), User.name.like(f"%{info.search}%"))).all()
+  participating = db.query(Project, Members, User).filter(Project.id==Members.project_id).filter(Members.user_id==User.id).filter(or_(User.username.like(f"%{info.search}%"), User.name.like(f"%{info.search}%"))).all()
+  
+  owned_projects = [{"project": ProjectClass.model_validate(proj)} for proj, _ in projects]
+  member_projects = [{"project": ProjectClass.model_validate(proj)} for proj, _, _ in participating]
+  
+  return {
+    "owner": owned_projects,
+    "member": member_projects
+  }
+
+@projectRouter.post("/skill")
+def get_project_by_skill(info:SearchProjects,
+                        access_token:str= Depends(get_token_from_header), 
+                        db: Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  participating = db.query(Project, Skill, ProjectSkill).filter(Project.id==ProjectSkill.project_id).filter(ProjectSkill.skill_id==Skill.id).fiter(Skill.name.like(f"%{info.search}%")).all()
+  return {
+    "projects": participating
+  }
+
+@projectRouter.get('/user/{user_id}')
+def get_project_by_userid(user_id, 
+                          access_token:str= Depends(get_token_from_header), 
+                          db: Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  projects = db.query(Project).filter(Project.admin_id==user_id).all()
+  participating = db.query(Project, Members).filter(Members.project_id == Project.id).filter(Members.user_id==user_id).all()
+  return {
+    "owned": projects,
+    "member": participating
+  }
+
+@projectRouter.get("/skill/{skill_id}")
+def get_project_by_skillid(skill_id,
+                           access_token:str= Depends(get_token_from_header), 
+                            db: Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  projects = db.query(Project, Skill, ProjectSkill).filter(Project.id==ProjectSkill.project_id).filter(ProjectSkill.skill_id==Skill.id).filter(Skill.id==skill_id).all()
+  return {
+    "projects": projects
+  }
+
+@projectRouter.get("/{project_id}")
+def get_project(project_id: str,access_token:str = Depends(get_token_from_header), db:Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  project = db.query(Project).filter(Project.id == project_id).first()
+  members = db.query(Members).filter(Members.project_id == project_id).all()
+  interests = db.query(Interest).filter(Interest.project_id == project_id).all()
+  isMember = "False"
+  CurrMember = db.query(Members).filter(Members.project_id==project_id, Members.user_id==user.id).first()
+  if CurrMember:
+    if CurrMember.role == "admin":
+      isMember = 'admin'
+    else:
+      isMember = 'True'
+  if project is None:
+    raise HTTPException(status_code=400, detail="ProjectNotFound")
+  return {
+    "project": project,
+    "members": members,
+    "interests": interests,
+    "isMember": isMember
+  }
 
 @projectRouter.post("/{project_id}")
 async def update_project(project_id,
                  name: Annotated[str, Form()],
                  description: Annotated[str, Form()] = None,
-                 pic: Annotated[str, File()] = None,
+                 pic: Annotated[UploadFile, File()] = None,
                  access_token:str = Depends(get_token_from_header), 
                  db: Session = Depends(get_db)):
   user = verify_token(access_token, db)
@@ -94,36 +176,3 @@ async def update_project(project_id,
   project.name = name
   project.description = description
   db.commit()
-
-@projectRouter.delete("/{project_id}")
-def delete_project(project_id, access_token:str = Depends(get_token_from_header), 
-                 db: Session = Depends(get_db)):
-  user = verify_token(access_token, db)
-  owner = db.query(Project.admin_id).filter(Project.id == project_id).first()
-  if(user.id != owner):
-    raise HTTPException(status_code=400, detail="Not permitted to do that action")
-  project = db.query(Project).filter(Project.id==project_id).first()
-  db.delete(project)
-  db.commit()
-
-@projectRouter.post("/name")
-def search_projects_by_name(info: SearchProjects,
-                            access_token:str= Depends(get_token_from_header), 
-                            db: Session = Depends(get_db)):
-
-  user = verify_token(access_token, db)  
-  projects = db.query(Project).filter(Project.name.like(f"%{info.search}%")).all()
-  return projects
-
-@projectRouter.post("/user")
-def get_project_by_user(info:GetProjectsByUser,
-                        access_token:str= Depends(get_token_from_header), 
-                        db: Session = Depends(get_db)):
-  user = verify_token(access_token, db)
-  projects = db.query(Project).filter(Project.admin_id == info.user_id).all()
-  participating = db.query(Project, Members).filter(Project.id==Members.project_id).fiter(Members.user_id).all()
-  return {
-    "owner": projects,
-    "member": participating
-  }
-
