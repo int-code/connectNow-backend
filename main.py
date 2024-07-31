@@ -7,6 +7,9 @@ from routes.auth import authRouter
 from routes.user import userRouter
 from routes.profile_pic import picRouter
 from routes.project import projectRouter
+from routes.members import membersRouter
+from routes.interest import interestRouter
+from routes.skill import skillRouter
 
 app = FastAPI()
 
@@ -27,3 +30,6 @@ app.include_router(authRouter)
 app.include_router(userRouter)
 app.include_router(picRouter)
 app.include_router(projectRouter)
+app.include_router(membersRouter)
+app.include_router(interestRouter)
+app.include_router(skillRouter)

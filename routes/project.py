@@ -52,7 +52,8 @@ def delete_project(project_id, access_token:str = Depends(get_token_from_header)
                  db: Session = Depends(get_db)):
   user = verify_token(access_token, db)
   owner = db.query(Project.admin_id).filter(Project.id == project_id).first()
-  if(user.id != owner):
+  print(owner)
+  if(user.id != owner[0]):
     raise HTTPException(status_code=400, detail="Not permitted to do that action")
   project = db.query(Project).filter(Project.id==project_id).first()
   db.delete(project)
@@ -121,6 +122,7 @@ def get_project(project_id: str,access_token:str = Depends(get_token_from_header
   project = db.query(Project).filter(Project.id == project_id).first()
   members = db.query(Members).filter(Members.project_id == project_id).all()
   interests = db.query(Interest).filter(Interest.project_id == project_id).all()
+  skills = db.query(Skill).join(ProjectSkill, ProjectSkill.skill_id==Skill.id).filter(ProjectSkill.skill_id==Skill.id, ProjectSkill.project_id==project_id).all()
   isMember = "False"
   CurrMember = db.query(Members).filter(Members.project_id==project_id, Members.user_id==user.id).first()
   if CurrMember:
@@ -134,7 +136,8 @@ def get_project(project_id: str,access_token:str = Depends(get_token_from_header
     "project": project,
     "members": members,
     "interests": interests,
-    "isMember": isMember
+    "isMember": isMember,
+    "skills": skills
   }
 
 @projectRouter.post("/{project_id}")
@@ -147,7 +150,7 @@ async def update_project(project_id,
   user = verify_token(access_token, db)
   owner = db.query(Project.admin_id).filter(Project.id == project_id).first()
   print(owner)
-  if(user.id != owner):
+  if(user.id != owner[0]):
     access = db.query(Members.role).filter(Members.project_id == project_id).filter(Members.user_id == user.id).first()
     if access is None:
       raise HTTPException(status_code=500, detail="Not permitted to do the action")
