@@ -9,6 +9,7 @@ class User(Base):
   password = Column(VARCHAR, nullable=False)
   bio = Column(TEXT, nullable=True)
   profile_pic = Column(VARCHAR, nullable=True)
+  profile_pic_path = Column(VARCHAR, nullable=True)
   username = Column(VARCHAR, nullable = False)
   created_at = Column(TIMESTAMP(timezone=False), server_default=text('now()'))
 
@@ -24,7 +25,8 @@ class Project(Base):
   admin_id = Column(Integer, nullable=False)
   name = Column(VARCHAR, nullable=False)
   description = Column(TEXT, nullable=True)
-  pic = Column(VARCHAR, nullable=True)
+  pic_url = Column(VARCHAR, nullable=True)
+  pic_path = Column(VARCHAR, nullable=True)
   status = Column(VARCHAR, nullable=False)
   created_at = Column(TIMESTAMP(timezone=False), server_default=text('now()'))
 

@@ -13,3 +13,5 @@ MAIL_HOST = os.getenv("MAIL_HOST")
 MAIL_USERNAME = os.getenv("MAIL_USERNAME")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 MAIL_PORT = os.getenv("MAIL_PORT")
+
+BASE_URL = os.getenv("BASE_URL")

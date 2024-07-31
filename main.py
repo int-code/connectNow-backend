@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from routes.auth import authRouter
 from routes.user import userRouter
-
+from routes.profile_pic import picRouter
+from routes.project import projectRouter
 
 app = FastAPI()
 
@@ -24,3 +25,5 @@ async def index_function(db: Session = Depends(get_db)):
 
 app.include_router(authRouter)
 app.include_router(userRouter)
+app.include_router(picRouter)
+app.include_router(projectRouter)

@@ -8,6 +8,7 @@ from helper.authHelper import get_token_from_header, verify_token
 from typing import Annotated
 import uuid
 import os
+from config import BASE_URL
 
 userRouter = APIRouter(prefix="/user")
 
@@ -29,11 +30,11 @@ async def update_user(name: Annotated[str, Form()],
                 access_token = Depends(get_token_from_header),
                 db:Session=Depends(get_db)):
   user = verify_token(access_token, db)
-  if not user.profile_pic is None:
+  if not user.profile_pic_path is None:
     try:
       if not os.path.isfile(f"profile_pics/{user.profile_pic}"):
           raise HTTPException(status_code=404, detail="File not found")
-      os.remove(f"profile_pics/{user.profile_pic}")
+      os.remove(f"profile_pics/{user.profile_pic_path}")
     except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
   extension = profile_pic.filename.split(".")[-1]
@@ -43,7 +44,8 @@ async def update_user(name: Annotated[str, Form()],
     f.write(contents)
   user.name = name
   user.bio = bio
-  user.profile_pic = "http://localhost/user/profile_pic/"+profile_pic.filename
+  user.profile_pic = BASE_URL+"/profile_pic/"+profile_pic.filename
+  user.profile_pic_path = profile_pic.filename
   db.commit()
   return {"detail": "UserUpdated"}
 
@@ -61,10 +63,3 @@ def delete_user(access_token = Depends(get_token_from_header),
   db.delete(user)
   db.commit()
   return {"detail": "UserDeleted"}
-  
-
-@userRouter.get('/profile_pic/{path}')
-def get_image(path: str):
-  file_path = f"profile_pics/{path}"
-  if os.path.exists(file_path):
-    return FileResponse(file_path)
