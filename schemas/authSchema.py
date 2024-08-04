@@ -1,9 +1,12 @@
 from pydantic import BaseModel
 from typing import List
+from datetime import timedelta
 
 class Token(BaseModel):
     access_token: str
     token_type: str
+    refresh_token: str
+    expires: timedelta
 
 class CreateNewUser(BaseModel):
     email: str

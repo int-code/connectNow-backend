@@ -36,13 +36,15 @@ async def make_project(name: Annotated[str, Form()],
       f.write(contents)
     pic_url = BASE_URL+"/profile_pic/"+pic.filename
     pic_path = pic.filename
-    
+  else:
+    pic_url = BASE_URL+"/profile_pic/default_project.png"
+    pic_path = "default_project.png"
   project = Project(admin_id = user.id, name=name, description=description, pic_url=pic_url, pic_path=pic_path, status="Not started")
   db.add(project)
   db.commit()
   db.refresh(project)
   return {
-    "project_id": project.id
+    "project": project
   }
 
 
@@ -56,6 +58,14 @@ def delete_project(project_id, access_token:str = Depends(get_token_from_header)
   if(user.id != owner[0]):
     raise HTTPException(status_code=400, detail="Not permitted to do that action")
   project = db.query(Project).filter(Project.id==project_id).first()
+  if not project.pic_path is None:
+    try:
+      if not os.path.isfile(f"profile_pics/{project.pic_path}"):
+          raise HTTPException(status_code=404, detail="File not found")
+      if not project.pic_path == "default_project.png":
+        os.remove(f"profile_pics/{project.pic_path}")
+    except Exception as e:
+      raise HTTPException(status_code=500, detail=str(e))
   db.delete(project)
   db.commit()
 
@@ -100,7 +110,7 @@ def get_project_by_userid(user_id,
                           db: Session = Depends(get_db)):
   user = verify_token(access_token, db)
   projects = db.query(Project).filter(Project.admin_id==user_id).all()
-  participating = db.query(Project, Members).filter(Members.project_id == Project.id).filter(Members.user_id==user_id).all()
+  participating = db.query(Project).join(Members, Members.project_id == Project.id).filter(Members.user_id==user_id).all()
   return {
     "owned": projects,
     "member": participating
@@ -116,13 +126,27 @@ def get_project_by_skillid(skill_id,
     "projects": projects
   }
 
+
+@projectRouter.get("/me")
+def get_project_by_token(access_token:str = Depends(get_token_from_header), 
+                          db: Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  projects = db.query(Project).filter(Project.admin_id==user.id).all()
+  participating = db.query(Project).join(Members, Members.project_id == Project.id).filter(Members.user_id==user.id).all()
+  return {
+    "owned": projects,
+    "member": participating
+  }
+
 @projectRouter.get("/{project_id}")
 def get_project(project_id: str,access_token:str = Depends(get_token_from_header), db:Session = Depends(get_db)):
   user = verify_token(access_token, db)
   project = db.query(Project).filter(Project.id == project_id).first()
-  members = db.query(Members).filter(Members.project_id == project_id).all()
-  interests = db.query(Interest).filter(Interest.project_id == project_id).all()
+  members = db.query(User).join(Members, Members.user_id==User.id).filter(Members.project_id == project_id, Members.role == "member").all()
+  admins = db.query(User).join(Members, Members.user_id==User.id).filter(Members.project_id == project_id, Members.role == "admin").all()
+  interests = db.query(User).join(Interest, Interest.user_id==User.id).filter(Interest.project_id == project_id).all()
   skills = db.query(Skill).join(ProjectSkill, ProjectSkill.skill_id==Skill.id).filter(ProjectSkill.skill_id==Skill.id, ProjectSkill.project_id==project_id).all()
+  owner = db.query(User).join(Project, Project.admin_id==User.id).filter(Project.id==project_id).first()
   isMember = "False"
   CurrMember = db.query(Members).filter(Members.project_id==project_id, Members.user_id==user.id).first()
   if CurrMember:
@@ -135,9 +159,11 @@ def get_project(project_id: str,access_token:str = Depends(get_token_from_header
   return {
     "project": project,
     "members": members,
+    "admins": admins,
     "interests": interests,
     "isMember": isMember,
-    "skills": skills
+    "skills": skills,
+    "owner": owner
   }
 
 @projectRouter.post("/{project_id}")

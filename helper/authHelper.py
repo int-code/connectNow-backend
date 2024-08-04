@@ -35,9 +35,11 @@ def authenticate_user(username, password, db) -> AuthenticateUser:
 
 def generate_token(username, id, expires):
    encode = {"username": username, "id": id}
+   refresh_token = jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
    expireTime = datetime.utcnow()+expires
    encode.update({"exp": expireTime})
-   return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+   access_token = jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+   return {"access_token": access_token, "refresh_token": refresh_token, "expires": expires}
 
 async def send_email(data:dict):
    message = MailBody(**data)

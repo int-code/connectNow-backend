@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, status
+from jose import JWTError
 from database import get_db
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timedelta, timezone
 from models import User
-from config import ACCESS_TOKEN_EXPIRE_MINUTES
+from config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from schemas.authSchema import Token, CreateNewUser, CheckUsername
 from helper.authHelper import verify_password, hash_password, authenticate_user, generate_token, send_email
+import jwt
+
 
 authRouter = APIRouter(prefix="/auth")
 
@@ -33,7 +36,7 @@ def create_new_account(info: CreateNewUser,db: Session =Depends(get_db)):
   checkExisting = db.query(User).filter(User.username == info.username).first()
   if(not checkExisting is None):
      raise HTTPException(status_code=400, detail="UserNameTaken")
-  newUser = User(email=info.email, password = hash_password(info.password), username=info.username)
+  newUser = User(email=info.email, password = hash_password(info.password), username=info.username, profile_pic="http://127.0.0.1:8000/profile_pic/default_user.jpg", profile_pic_path="default_user.jpg")
   db.add(newUser)
   db.commit()
   return {"message": "NewUserCreated"}
@@ -43,10 +46,28 @@ async def login(formData: OAuth2PasswordRequestForm = Depends(), db:Session = De
   authentication  = authenticate_user(formData.username, formData.password, db)
   if authentication['flag']:
      token = generate_token(authentication['detail'].username, authentication['detail'].id, timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
-     return {"access_token": token, "token_type": "bearer"}
+     return {"access_token": token['access_token'],"refresh_token":token['refresh_token'],"expires":token['expires'], "token_type": "bearer"}
   raise HTTPException(status_code=400, detail=authentication['detail'])
      
   
+@authRouter.post("/refresh", response_model=Token)
+async def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
+   try:
+      payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+      username: str = payload.get("username")
+      id: str = payload.get("id")
+      if username is None or id is None:
+         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+      user = db.query(User).filter(User.username == username, User.id == id).first()
+      if user is None:
+         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+   except JWTError:
+      raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    # Generate a new access token
+   access_expires = timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
+   access_token = generate_token(username, user.id, access_expires)
+   return {"access_token": access_token['access_token'],"refresh_token":access_token['refresh_token'],"expires":access_token['expires'], "token_type": "bearer"}
 
 
 # @authRouter.get("/home")

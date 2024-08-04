@@ -55,11 +55,30 @@ def delete_user(access_token = Depends(get_token_from_header),
   user = verify_token(access_token, db)
   if not user.profile_pic is None:
     try:
-      if not os.path.isfile(f"profile_pics/{user.profile_pic}"):
+      if not os.path.isfile(f"profile_pics/{user.profile_pic_path}"):
           raise HTTPException(status_code=404, detail="File not found")
-      os.remove(f"profile_pics/{user.profile_pic}")
+      if not user.profile_pic_path == "default_user.jpg":
+        os.remove(f"profile_pics/{user.profile_pic_path}")
     except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
   db.delete(user)
   db.commit()
   return {"detail": "UserDeleted"}
+
+
+@userRouter.get('/{user_id}')
+def get_user_by_id(user_id, access_token = Depends(get_token_from_header), db:Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  viewUser = db.query(User).filter(User.id==user_id).first()
+  isUser = False
+  if(user.id == user_id):
+    isUser = True
+  return {
+    "username": viewUser.username,
+    "email": viewUser.email,
+    "name": viewUser.name,
+    "bio": viewUser.bio,
+    "profile_pic": viewUser.profile_pic,
+    "isUser": isUser,
+    "joined_at": viewUser.created_at
+  }
