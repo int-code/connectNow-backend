@@ -1,5 +1,5 @@
 from database import Base
-from sqlalchemy import Column, Integer,VARCHAR, TEXT, TIMESTAMP, text
+from sqlalchemy import Column, Integer,VARCHAR, TEXT, TIMESTAMP, text, BOOLEAN
 
 class User(Base):
   __tablename__ = 'users'
@@ -58,3 +58,18 @@ class Interest(Base):
   project_id = Column(Integer, nullable=False)
   user_id = Column(Integer, nullable=False)
   status = Column(VARCHAR, nullable=False)
+
+class Verification(Base):
+  __tablename__ = "verification"
+
+  id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+  email = Column(VARCHAR, nullable=False)
+  code = Column(VARCHAR, nullable=False)
+  used = Column(BOOLEAN, nullable=False)
+  created_at = Column(TIMESTAMP(timezone=False), server_default=text('now()'))
+
+class UsernameOnHold(Base):
+  __tablename__ = "username_on_hold"
+
+  id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+  username = Column(VARCHAR, nullable=False)

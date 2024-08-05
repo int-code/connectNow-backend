@@ -11,6 +11,7 @@ from config import MAIL_HOST,MAIL_PASSWORD, MAIL_PORT, MAIL_USERNAME
 from config import SECRET_KEY, ALGORITHM
 from fastapi import Header, status, HTTPException
 import jwt
+import random
 
 
 def verify_password(plain_password, hashed_password):
@@ -60,19 +61,6 @@ async def send_email(data:dict):
       print(e)
       return False
 
-   # message = MessageSchema(
-   #      subject="Fastapi-Mail module",
-   #      recipients=["pubalibasak56@gmail.com"],
-   #      body="<p>Hello this is a new email Im trying</p>",
-   #      subtype=MessageType.html)
-
-   # fm = FastMail(conf)
-   # try:
-   #    await fm.send_message(message)
-   # except Exception as e:
-   #    print(e)
-
-
 
 
 def get_token_from_header(access_token: str = Header(None)):
@@ -103,3 +91,5 @@ def verify_token(token: str, db):
         raise credentials_exception
     return user
 
+def generate_6_digit_number():
+    return random.randint(100000, 999999)

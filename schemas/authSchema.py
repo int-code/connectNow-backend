@@ -24,3 +24,17 @@ class MailBody(BaseModel):
     to: List[str]
     subject: str
     body: str
+
+class VerifyEmail(BaseModel):
+    email: str
+    code: int
+    password: str
+    username: str
+
+class ForgotPassword(BaseModel):
+    email: str
+
+class ResetPassword(BaseModel):
+    code: int
+    new_password: str
+    user_email: str
