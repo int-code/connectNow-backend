@@ -147,13 +147,20 @@ def get_project(project_id: str,access_token:str = Depends(get_token_from_header
   interests = db.query(User).join(Interest, Interest.user_id==User.id).filter(Interest.project_id == project_id).all()
   skills = db.query(Skill).join(ProjectSkill, ProjectSkill.skill_id==Skill.id).filter(ProjectSkill.skill_id==Skill.id, ProjectSkill.project_id==project_id).all()
   owner = db.query(User).join(Project, Project.admin_id==User.id).filter(Project.id==project_id).first()
-  isMember = "False"
+  isMember = "not-member"
+  if(user.id == project.admin_id):
+    isMember="owner"
   CurrMember = db.query(Members).filter(Members.project_id==project_id, Members.user_id==user.id).first()
   if CurrMember:
     if CurrMember.role == "admin":
       isMember = 'admin'
     else:
-      isMember = 'True'
+      isMember = 'member'
+  hasInterest = False
+  if CurrMember == 'not-member':
+    interest = db.query(Interest).filter(Interest.project_id==project_id, Interest.user_id==user.id).first()
+    if not interest is None:
+      hasInterest = True
   if project is None:
     raise HTTPException(status_code=400, detail="ProjectNotFound")
   return {
@@ -163,7 +170,8 @@ def get_project(project_id: str,access_token:str = Depends(get_token_from_header
     "interests": interests,
     "isMember": isMember,
     "skills": skills,
-    "owner": owner
+    "owner": owner,
+    "hasInterest": hasInterest
   }
 
 @projectRouter.post("/{project_id}")
@@ -179,21 +187,22 @@ async def update_project(project_id,
   if(user.id != owner[0]):
     access = db.query(Members.role).filter(Members.project_id == project_id).filter(Members.user_id == user.id).first()
     if access is None:
-      raise HTTPException(status_code=500, detail="Not permitted to do the action")
-    if access != "ADMIN":
-      raise HTTPException(status_code=500, detail="Not permitted to do the action")
+      raise HTTPException(status_code=400, detail="Not permitted to do the action")
+    if access != "admin":
+      raise HTTPException(status_code=400, detail="Not permitted to do the action")
   project = db.query(Project).filter(Project.id == project_id).first()
   if project is None:
     raise HTTPException(status_code=400, detail="ProjectNotFound")
   if not project.pic_path is None:
-    try:
-      if not os.path.isfile(f"profile_pics/{project.pic_path}"):
-          raise HTTPException(status_code=404, detail="File not found")
-      os.remove(f"profile_pics/{project.pic_path}")
-    except Exception as e:
-      raise HTTPException(status_code=500, detail=str(e))
-  project.pic_url = None
-  project.pic_path = None
+    if project.pic_path!='default_project.jpg':
+      try:
+        if not os.path.isfile(f"profile_pics/{project.pic_path}"):
+            raise HTTPException(status_code=404, detail="File not found")
+        os.remove(f"profile_pics/{project.pic_path}")
+      except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+  project.pic_url = "http://127.0.0.1:8000/profile_pic/default_project.png"
+  project.pic_path = "default_project.png"
   if not pic is None:
     extension = pic.filename.split(".")[-1]
     pic.filename = str(uuid.uuid4())+"."+extension
@@ -205,3 +214,4 @@ async def update_project(project_id,
   project.name = name
   project.description = description
   db.commit()
+  return {"message":"ProjectUpdated"}

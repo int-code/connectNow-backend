@@ -40,6 +40,7 @@ def add_skills(info:AddSkill,
     newSkill = ProjectSkill(project_id=info.project_id, skill_id=info.skill_id)
     db.add(newSkill)
     db.commit()
+    return {"message": "SkillAdded"}
   else:
     exists = db.query(UserSkill).filter(UserSkill.user_id==user.id, UserSkill.skill_id==info.skill_id).first()
     if exists:
@@ -47,6 +48,7 @@ def add_skills(info:AddSkill,
     newSkill = UserSkill(user_id=user.id, skill_id=info.skill_id)
     db.add(newSkill)
     db.commit()
+    return {"message": "SkillAdded"}
 
 
 
@@ -62,9 +64,11 @@ def delete_skills(info:AddSkill,
     authenticateOwnerOrAdmin(user, info.project_id, db)
     db.delete(exists)
     db.commit()
+    return {"message": "SkillDeleted"}
   else:
     exists = db.query(UserSkill).filter(UserSkill.user_id==user.id, UserSkill.skill_id==info.skill_id).first()
     if not exists:
       raise HTTPException(status_code=400, detail="SkillIsNotLinked")
     db.delete(exists)
     db.commit()
+    return {"message": "SkillDeleted"}

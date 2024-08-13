@@ -62,6 +62,7 @@ def update_interest(info: UpdateInterest,
     newMember = Members(project_id=info.project_id, user_id=info.user_id, role="member")
     db.add(newMember)
   db.commit()
+  return {"messsage", "InterestUpdated"}
 
 @interestRouter.delete('/')
 def delete_interest(info:DeleteInterest,
@@ -77,3 +78,4 @@ def delete_interest(info:DeleteInterest,
     raise HTTPException(status_code=400, detail="InterestDecided")
   db.delete(interest)
   db.commit()
+  return {"message": "InterestDeleted"}

@@ -37,17 +37,20 @@ async def update_user(name: Annotated[str, Form()],
       os.remove(f"profile_pics/{user.profile_pic_path}")
     except Exception as e:
       raise HTTPException(status_code=500, detail=str(e))
-  extension = profile_pic.filename.split(".")[-1]
-  profile_pic.filename = str(uuid.uuid4())+"."+extension
-  contents = await profile_pic.read()
-  with open(f"profile_pics/{profile_pic.filename}", "wb") as f:
-    f.write(contents)
+  user.profile_pic ="http://127.0.0.1:8000/profile_pic/default_user.jpg"
+  user.profile_pic_path = "default_user.jpg"
+  if not profile_pic is None:
+    extension = profile_pic.filename.split(".")[-1]
+    profile_pic.filename = str(uuid.uuid4())+"."+extension
+    contents = await profile_pic.read()
+    with open(f"profile_pics/{profile_pic.filename}", "wb") as f:
+      f.write(contents)
+    user.profile_pic = BASE_URL+"/profile_pic/"+profile_pic.filename
+    user.profile_pic_path = profile_pic.filename
   user.name = name
   user.bio = bio
-  user.profile_pic = BASE_URL+"/profile_pic/"+profile_pic.filename
-  user.profile_pic_path = profile_pic.filename
   db.commit()
-  return {"detail": "UserUpdated"}
+  return {"message": "UserUpdated"}
 
 @userRouter.delete('/')
 def delete_user(access_token = Depends(get_token_from_header),
@@ -63,7 +66,7 @@ def delete_user(access_token = Depends(get_token_from_header),
       raise HTTPException(status_code=500, detail=str(e))
   db.delete(user)
   db.commit()
-  return {"detail": "UserDeleted"}
+  return {"message": "UserDeleted"}
 
 
 @userRouter.get('/{user_id}')
