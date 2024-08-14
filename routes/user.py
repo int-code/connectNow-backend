@@ -9,6 +9,7 @@ from typing import Annotated
 import uuid
 import os
 from config import BASE_URL
+from sqlalchemy import or_
 
 userRouter = APIRouter(prefix="/user")
 
@@ -68,6 +69,12 @@ def delete_user(access_token = Depends(get_token_from_header),
   db.commit()
   return {"message": "UserDeleted"}
 
+@userRouter.get('/search/{username}')
+def get_user_by_name(username, access_token = Depends(get_token_from_header), db:Session = Depends(get_db)):
+  user = verify_token(access_token, db)
+  get_Users = db.query(User).filter(or_(User.username.like(f"%{username}%"), User.name.like(f"%{username}%"))).all()
+  return get_Users
+
 
 @userRouter.get('/{user_id}')
 def get_user_by_id(user_id, access_token = Depends(get_token_from_header), db:Session = Depends(get_db)):
@@ -85,3 +92,4 @@ def get_user_by_id(user_id, access_token = Depends(get_token_from_header), db:Se
     "isUser": isUser,
     "joined_at": viewUser.created_at
   }
+

@@ -3,7 +3,7 @@ from database import get_db
 from sqlalchemy.orm import Session
 from helper.authHelper import get_token_from_header, verify_token
 from helper.projectHelper import authenticateOwnerOrAdmin
-from models import Members, Project
+from models import Members, Project, User
 from schemas.memberSchema import AddMembers, MembersClass
 
 membersRouter = APIRouter(prefix="/members")
@@ -15,6 +15,8 @@ def get_members(project_id,
   user = verify_token(access_token, db)
   members = db.query(Members, Project).filter(Project.id==Members.project_id).filter(Project.id==project_id).all()
   membersResult = [ MembersClass.model_validate(mem) for mem, _ in members]
+
+  return membersResult
 
 @membersRouter.post('/')
 def add_members(info:AddMembers,
@@ -49,8 +51,9 @@ def add_members(info:AddMembers,
   new_member = Members(project_id=info.project_id, user_id=info.user_id, role=info.role)
   db.add(new_member)
   db.commit()
-  
-  return {"detail": "MemberAdded"}
+  db.refresh(new_member)
+  added_user = db.query(User).filter(User.id==info.user_id).first()
+  return added_user
 
 @membersRouter.put('/')
 def update_members(info:AddMembers,
@@ -58,7 +61,9 @@ def update_members(info:AddMembers,
                  db: Session = Depends(get_db)):
   user = verify_token(access_token, db)
   authenticateOwnerOrAdmin(user, info.project_id, db)
-  UpdateUser = db.query(Members).filter(Members.project_id==info.user_id, Members.user_id==info.user_id).first()
+  UpdateUser = db.query(Members).filter(Members.project_id==info.project_id, Members.user_id==info.user_id).first()
+  if UpdateUser is None:
+     raise HTTPException(status_code=400, detail="Member not found")
   UpdateUser.role = info.role
   db.commit()
   return {
@@ -76,7 +81,7 @@ def delete_members(info:AddMembers,
   if user.id == project.admin_id:
     member = db.query(Members).filter(Members.project_id==info.project_id, Members.user_id==info.user_id).first()
     if member:
-      db.delete(project)
+      db.delete(member)
       db.commit()
       return {
         "detail": "MemberRemoved"
